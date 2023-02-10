@@ -9,7 +9,8 @@ xhost +
 xhost +local:docker
 echo $xhost
 #docker-compose up -d --force-recreate --no-deps --build
-docker-compose rm -f 
-docker-compose up -d --build 
+docker rm -f ${CONTAINERNAME}
+docker-compose build # --no-cache
+docker-compose up -d
 docker-compose exec echo $xhost
 docker exec -it ${CONTAINERNAME} /bin/bash

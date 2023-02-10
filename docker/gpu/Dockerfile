@@ -38,8 +38,10 @@ RUN pip install -U pyrealsense2
 USER ${USER_NAME}
 RUN git config --global user.name "pdh"
 RUN git config --global user.email "pdh930105@gmail.com"
+
 WORKDIR /home/${USER_NAME}
 RUN git clone https://github.com/pdh930105/yolov7-face.git
+WORKDIR /home/${USER_NAME}/yolov7-face
 
 ENTRYPOINT ["/opt/nvidia/nvidia_entrypoint.sh"]
 

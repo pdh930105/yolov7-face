@@ -117,7 +117,7 @@ RUN python3 -m pip install --upgrade --no-cache-dir setuptools pip
 USER ${USER_NAME}
 WORKDIR /home/${USER_NAME}
 RUN git clone https://github.com/pdh930105/yolov7-face.git
-RUN cd yolov7-face && git checkout new_con
+RUN cd yolov7-face
 
 ENV NVIDIA_VISIBLE_DEVICES all
 ENV NVIDIA_DRIVER_CAPABILITIES all
