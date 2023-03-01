@@ -10,6 +10,7 @@ xhost +local:docker
 echo $xhost
 #docker-compose up -d --force-recreate --no-deps --build
 docker rm -f ${CONTAINERNAME}
+
 docker-compose up -d --build
 docker exec ${CONTAINERNAME} echo "xhost's display : "
 docker exec ${CONTAINERNAME} echo $DISPLAY
