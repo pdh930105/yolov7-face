@@ -35,3 +35,6 @@ pycuda
 easydict
 loguru
 pyyaml
+
+# dof tool
+scikit-image
