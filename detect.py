@@ -354,7 +354,7 @@ def detect(opt):
                             plot_one_box(xyxy, im0, label=label, color=colors(c, True), line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3, orig_shape=im0.shape[:2])
                             if opt.save_crop:
                                 save_one_box(xyxy, im0s, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
-                            if save_face_img or view_img:
+                            if (save_face_img or view_img) and use_dof:
                                 result_dof =result_dof_list[det_index]
                                 center_value, bbox_width, p_pred_deg, y_pred_deg, r_pred_deg = result_dof
                                 print("degree : ", p_pred_deg, y_pred_deg, r_pred_deg)
