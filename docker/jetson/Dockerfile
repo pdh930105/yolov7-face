@@ -12,10 +12,15 @@ ARG USER_NAME
 RUN apt-get clean
 # this line change to ubuntu archive
 RUN apt-get update -y
+RUN apt-get upgrade -y
 RUN apt-get update \
     && apt-get install -qq -y --no-install-recommends \
     build-essential \
     cmake \
+    python3 \
+    python3-setuptools \
+    python3-pip \
+    python3-dev \
     git \
     libssl-dev \
     libusb-1.0-0-dev \
@@ -25,26 +30,10 @@ RUN apt-get update \
     libgl1-mesa-dev \
     libglu1-mesa-dev \
     curl \
-    python3 \
-    python3-dev \
-    ca-certificates 
+    ca-certificates
 
 RUN apt-get install python3.9-dev -y
 
-WORKDIR /usr/src
-RUN echo $PWD
-RUN ls $PWD
-# RUN git clone https://github.com/IntelRealSense/librealsense.git
-# # Build and install
-# RUN ls $PWD
-# RUN cd /usr/src/librealsense \
-#     && mkdir build && cd build \
-#     && cmake ../ \
-#     -DBUILD_GRAPHICAL_EXAMPLES=OFF \
-#     -DBUILD_PYTHON_BINDINGS:bool=true \
-#     -DCMAKE_BUILD_TYPE=release \
-#     -DFORCE_RSUSB_BACKEND=false
-# RUN cd /usr/src/librealsense/build && make clean && make -j$(($(nproc)-1)) all && make install
 
 ######################################
 #   librealsense Base Image Stage    #
@@ -78,7 +67,7 @@ RUN apt-get update && apt-get upgrade -y \
     software-properties-common \
     python3-pyqt5*
 
-RUN apt-get install vim -y 
+RUN apt-get install vim -y
 RUN apt-get install tmux -y
 RUN apt-get install libgl1-mesa-glx -y
 RUN apt-get install ffmpeg -y
@@ -91,6 +80,22 @@ RUN apt-get install '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-d
 
 RUN apt-get autoremove -y
 RUN apt-get clean
+
+WORKDIR /usr/src
+RUN echo $PWD
+RUN ls $PWD
+RUN git clone https://github.com/IntelRealSense/librealsense.git
+# Build and install
+RUN ls $PWD
+RUN cd /usr/src/librealsense \
+    && mkdir build && cd build \
+    && cmake ../ \
+    -DBUILD_GRAPHICAL_EXAMPLES=OFF \
+    -DBUILD_PYTHON_BINDINGS:bool=true \
+    -DCMAKE_BUILD_TYPE=release \
+    -DFORCE_RSUSB_BACKEND=false
+RUN cd /usr/src/librealsense/build && make clean && make -j$(($(nproc)-1)) all && make install
+
 
 # #########################
 # #    python setting     #

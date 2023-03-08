@@ -1,7 +1,7 @@
 export USERID=$(id -u)
 export GROUPID=$(id -g)
 export USERNAME=$(whoami)
-export CONTAINERNAME="yolo_jetson_pdh_rs"
+export CONTAINERNAME="yolo_jetson_pdh_rs_test"
 printf "USERID=%s\n" $USERID 
 printf "GROUPID=%s\n" $GROUPID 
 printf "USERNAME=%s\n" $USERNAME 
