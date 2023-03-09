@@ -43,7 +43,7 @@ python3 detect.py --weights yolov7-tiny-face.pt --source 0 or video_path # (0 is
 
 # if you want 6dof result
 
-python3 detect.py --weights yolov7-tiny-face.pt --source img_path --use-dof # (--save-dof for save result) 
+python3 detect.py --weights yolov7-tiny-face.pt --source 0 or video_path --use-dof # (--save-dof for save result) 
 
 ```
 
