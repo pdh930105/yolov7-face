@@ -11,6 +11,9 @@ This code is designed to run the yolov7-face in a TensorRT-python environment.
 
 ## Environment Setting
 
+#### prepare docker & docker compose setting
+This code tested docker-compose version 1.29.2 (important) / docker version 20.10.3 
+
 #### prepare python library
 This code tested docker image nvcr.io/nvidia/pytorch:22.10-py3 (RTX3090), nvcr.io/nvidia/l4t-pytorch:r35.1.0-pth1.12-py3 (Jetson Orin)
 
