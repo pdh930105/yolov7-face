@@ -22,6 +22,49 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized
 from models.sixdrepnet import model as sixdmodel
 from easydict import EasyDict as edict
 
+from multiprocessing import Process
+from datetime import datetime
+
+class dataHolder:
+    def __init__(self):
+        self.data = None
+
+    def SetData(self, data):
+        self.data = data
+
+    def GetDataString(self, curTime=True):
+        if curTime == True:
+            c = datetime.now().strftime('%H%M%S.%f')[:-3]
+        else:
+            c = ""
+        ca = self.data["center_angle"]
+        cp = self.data["center_position"]
+        v = f'{ca[0]},{ca[1]},{ca[2]},{cp[0]},{cp[1]}'
+        return f'{c},{v}'
+
+dh = dataHolder()
+
+import socket
+import time
+def server(opt):
+    HOST, PORT = "163.152.172.78", 10243
+    print(f"=== Server Initializing @ {HOST}:{PORT}===")
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind((HOST, PORT))
+        while True:
+            s.listen(1)
+            conn, addr = s.accept()
+            print('Connected by ', addr)
+            try:
+                with conn:
+                    while True:
+                        sendstr = dh.GetDataString()
+                        conn.send(bytes(sendstr, "utf-8"))
+                        print('Sending %s to %s'%(sendstr, addr))
+                        time.sleep(0.03)
+            except:
+                print('Connection closed')
+    pass
 
 def detect(opt):
     source, weights, view_img, save_txt, imgsz, save_txt_tidl, kpt_label = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.save_txt_tidl, opt.kpt_label
@@ -207,11 +250,17 @@ def detect(opt):
                             if (save_face_img or view_img) and use_dof:
                                 result_dof =result_dof_list[det_index]
                                 center_value, bbox_width, p_pred_deg, y_pred_deg, r_pred_deg = result_dof
-                                print("degree : ", p_pred_deg, y_pred_deg, r_pred_deg)
+                                # Data to transfer
+                                dataPost = dict()
+                                dataPost["center_angle"] = [p_pred_deg, y_pred_deg, r_pred_deg]
+                                dataPost["center_position"] = [int(kpts[6]), int(kpts[7])]
+                                dh.SetData(dataPost)
+                                # print("degree : ", p_pred_deg, y_pred_deg, r_pred_deg)
+                                # print("center x,y (nose point) = ", int(kpts[6]), int(kpts[7]))
+                                # print("kpts : = ", kpts)
+                                
                                 #sixdmodel.sixd_utils.plot_pose_cube(im0, y_pred_deg, p_pred_deg, r_pred_deg, tdx=center_value[0], tdy=center_value[1], size=bbox_width)
-                                print("center x,y (nose point) = ", int(kpts[6]), int(kpts[7]))
                                 #print("noise x, y = ", kpts[4], kpts[5])
-                                print("kpts : = ", kpts)
                                 sixdmodel.sixd_utils.draw_axis(im0, y_pred_deg, p_pred_deg, r_pred_deg, tdx=int(kpts[6]), tdy=int(kpts[7]), size=bbox_width)
 
                     if save_txt_tidl:  # Write to file in tidl dump format
@@ -222,9 +271,9 @@ def detect(opt):
                                 f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
                 # Print time (inference + NMS)
-                print(f'{s} yolo predict Done. ({t2 - t1:.3f}s)')
-                if use_dof:
-                    print(f'{s} 6dof predict Done. ({t3 - t2:.3f}s)')
+                # print(f'{s} yolo predict Done. ({t2 - t1:.3f}s)')
+                # if use_dof:
+                #     print(f'{s} 6dof predict Done. ({t3 - t2:.3f}s)')
 
                 # Stream results
                 if view_img:
@@ -358,10 +407,12 @@ def detect(opt):
                                 result_dof =result_dof_list[det_index]
                                 center_value, bbox_width, p_pred_deg, y_pred_deg, r_pred_deg = result_dof
                                 print("degree : ", p_pred_deg, y_pred_deg, r_pred_deg)
-                                #sixdmodel.sixd_utils.plot_pose_cube(im0, y_pred_deg, p_pred_deg, r_pred_deg, tdx=center_value[0], tdy=center_value[1], size=bbox_width)
                                 print("center x,y (nose point) = ", int(kpts[6]), int(kpts[7]))
-                                #print("noise x, y = ", kpts[4], kpts[5])
                                 print("kpts : = ", kpts)
+                                
+                                #sixdmodel.sixd_utils.plot_pose_cube(im0, y_pred_deg, p_pred_deg, r_pred_deg, tdx=center_value[0], tdy=center_value[1], size=bbox_width)
+                                #print("noise x, y = ", kpts[4], kpts[5])
+
                                 sixdmodel.sixd_utils.draw_axis(im0, y_pred_deg, p_pred_deg, r_pred_deg, tdx=int(kpts[6]), tdy=int(kpts[7]), size=bbox_width)
 
                     if save_txt_tidl:  # Write to file in tidl dump format
@@ -372,8 +423,8 @@ def detect(opt):
                                 f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
                 # Print time (inference + NMS)
-                print(f'{s} yolo predict Done. ({t2 - t1:.3f}s)')
-                print(f'{s} 6dof predict Done. ({t3 - t2:.3f}s)')
+                # print(f'{s} yolo predict Done. ({t2 - t1:.3f}s)')
+                # print(f'{s} 6dof predict Done. ({t3 - t2:.3f}s)')
 
                 # Stream results
                 if view_img:
@@ -405,7 +456,6 @@ def detect(opt):
         print(f"Results saved to {save_dir}{s}")
 
     print(f'Done. ({time.time() - t0:.3f}s)')
-
 
 
 
@@ -441,6 +491,8 @@ if __name__ == '__main__':
     opt = parser.parse_args()
     print(opt)
     #check_requirements(exclude=('tensorboard', 'pycocotools', 'thop'))
+    procs = []
+    proc_server = Process(target=server, args=(opt,))
 
     with torch.no_grad():
         if opt.update:  # update all models (to fix SourceChangeWarning)
@@ -448,4 +500,10 @@ if __name__ == '__main__':
                 detect(opt=opt)
                 strip_optimizer(opt.weights)
         else:
-            detect(opt=opt)
+            # detect(opt=opt)
+            proc_detector = Process(target=detect, args=(opt,))
+        
+        procs.append(proc_detector)
+        proc_detector.start()
+        procs.append(proc_server)
+        proc_server.start()
