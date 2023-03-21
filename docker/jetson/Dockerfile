@@ -109,20 +109,22 @@ RUN cp /usr/src/librealsense/build/wrappers/python/pyrealsense2.cpython-38-aarch
 # #########################
 RUN python3 -m pip install --upgrade --no-cache-dir setuptools pip
 
-# # RUN python3 -m pip install --no-cache-dir opencv-python
-# # in Dockerfile, can't use cuda to RUN python3 -m pip install opencv-contrib-python
-# RUN python3 -m pip install --no-cache-dir --upgrade Cython
-# RUN python3 -m pip install --no-cache-dir scipy
-# RUN python3 -m pip install --no-cache-dir tqdm
-# # RUN pip3 install -U easydict
-# # RUN pip3 install -U onnxruntime
-# # RUN pip3 install -U onnx-simplifier==0.3.5
-# # RUN pip3 install -U onnx-sim
-# # RUN pip3 install -U opencv-python==4.5.5.64
-# # RUN pip3 install -U seaborn
-# # RUN pip3 install -U loguru
-# # RUN pip3 install -U numpy==1.22.1 # same setting trt
-# # RUN pip3 install -U pyyaml
+# RUN python3 -m pip install --no-cache-dir opencv-python
+# in Dockerfile, can't use cuda to RUN python3 -m pip install opencv-contrib-python
+RUN python3 -m pip install --no-cache-dir --upgrade Cython
+RUN python3 -m pip install --no-cache-dir scipy
+RUN python3 -m pip install --no-cache-dir tqdm
+RUN pip3 install -U easydict
+RUN pip3 install -U onnxruntime
+RUN pip3 install -U onnx-simplifier==0.3.5
+RUN pip3 install -U onnxsim
+# if pre-installed opencv, it does not run docker container
+# RUN pip3 install -U opencv-python==4.5.5.64
+
+RUN pip3 install -U seaborn
+RUN pip3 install -U loguru
+RUN pip3 install -U numpy==1.22.1 # same setting trt
+RUN pip3 install -U pyyaml
 
 USER ${USER_NAME}
 WORKDIR /home/${USER_NAME}
