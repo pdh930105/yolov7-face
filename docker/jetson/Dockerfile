@@ -10,6 +10,7 @@ ARG USER_ID
 ARG GROUP_ID
 ARG USER_NAME
 RUN apt-get clean
+RUN rm -rf /var/atp/lists/*
 # this line change to ubuntu archive
 RUN apt-get update -y
 RUN apt-get upgrade -y
@@ -31,7 +32,7 @@ RUN apt-get update \
     libglu1-mesa-dev \
     curl \
     ca-certificates
-
+# required pyrealsense2 build (cmake -DPYTHON_EXECUTABLE and PYBINDING)
 RUN apt-get install python3.9-dev -y
 
 
@@ -57,6 +58,8 @@ RUN echo ${USER_NAME}' ALL=NOPASSWD: ALL' >> /etc/sudoers
 ENV PYTHONPATH=$PYTHONPATH:/usr/local/lib
 
 # # Install dep packages
+RUN apt-get clean
+RUN rm -rf /var/atp/lists/*
 RUN apt-get update && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
     libusb-1.0-0 \
@@ -92,9 +95,13 @@ RUN cd /usr/src/librealsense \
     && cmake ../ \
     -DBUILD_GRAPHICAL_EXAMPLES=OFF \
     -DBUILD_PYTHON_BINDINGS:bool=true \
+    -DPYTHON_EXECUTABLE=/usr/bin/python3 \
     -DCMAKE_BUILD_TYPE=release \
     -DFORCE_RSUSB_BACKEND=false
 RUN cd /usr/src/librealsense/build && make clean && make -j$(($(nproc)-1)) all && make install
+
+# send library librealsense2 to python3.8
+RUN cp /usr/src/librealsense/build/wrappers/python/pyrealsense2.cpython-38-aarch64-linux-gnu.so /usr/local/lib/
 
 
 # #########################
