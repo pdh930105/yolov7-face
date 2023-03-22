@@ -24,47 +24,8 @@ from easydict import EasyDict as edict
 
 from multiprocessing import Process
 from datetime import datetime
-
-class dataHolder:
-    def __init__(self):
-        self.data = None
-
-    def SetData(self, data):
-        self.data = data
-
-    def GetDataString(self, curTime=True):
-        if curTime == True:
-            c = datetime.now().strftime('%H%M%S.%f')[:-3]
-        else:
-            c = ""
-        ca = self.data["center_angle"]
-        cp = self.data["center_position"]
-        v = f'{ca[0]},{ca[1]},{ca[2]},{cp[0]},{cp[1]}'
-        return f'{c},{v}'
-
-dh = dataHolder()
-
 import socket
 import time
-def server(opt):
-    HOST, PORT = "163.152.172.78", 10243
-    print(f"=== Server Initializing @ {HOST}:{PORT}===")
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind((HOST, PORT))
-        while True:
-            s.listen(1)
-            conn, addr = s.accept()
-            print('Connected by ', addr)
-            try:
-                with conn:
-                    while True:
-                        sendstr = dh.GetDataString()
-                        conn.send(bytes(sendstr, "utf-8"))
-                        print('Sending %s to %s'%(sendstr, addr))
-                        time.sleep(0.03)
-            except:
-                print('Connection closed')
-    pass
 
 def detect(opt):
     source, weights, view_img, save_txt, imgsz, save_txt_tidl, kpt_label = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.save_txt_tidl, opt.kpt_label
@@ -139,6 +100,7 @@ def detect(opt):
             dataset = LoadStreams(source, img_size=imgsz[0], stride=stride)
     else:
         dataset = LoadImages(source, img_size=imgsz[0], stride=stride)
+
 
     # Run inference
     if device.type != 'cpu':
@@ -250,15 +212,18 @@ def detect(opt):
                             if (save_face_img or view_img) and use_dof:
                                 result_dof =result_dof_list[det_index]
                                 center_value, bbox_width, p_pred_deg, y_pred_deg, r_pred_deg = result_dof
-                                # Data to transfer
-                                dataPost = dict()
-                                dataPost["center_angle"] = [p_pred_deg, y_pred_deg, r_pred_deg]
-                                dataPost["center_position"] = [int(kpts[6]), int(kpts[7])]
-                                dh.SetData(dataPost)
-                                # print("degree : ", p_pred_deg, y_pred_deg, r_pred_deg)
-                                # print("center x,y (nose point) = ", int(kpts[6]), int(kpts[7]))
-                                # print("kpts : = ", kpts)
-                                
+
+                                if opt.server == True:
+                                    data = f'{float(p_pred_deg):.3f},{float(y_pred_deg):.3f},{float(r_pred_deg):.3f},{int(kpts[6])},{int(kpts[7])},'
+                                    try:
+                                        opt.server_conn.send(data.encode())
+                                    except Exception as e:
+                                        print(data), print(e)
+                                else:
+                                    print("degree : ", p_pred_deg, y_pred_deg, r_pred_deg)
+                                    print("center x,y (nose point) = ", int(kpts[6]), int(kpts[7]))
+                                    print("kpts : = ", kpts)
+                                    
                                 #sixdmodel.sixd_utils.plot_pose_cube(im0, y_pred_deg, p_pred_deg, r_pred_deg, tdx=center_value[0], tdy=center_value[1], size=bbox_width)
                                 #print("noise x, y = ", kpts[4], kpts[5])
                                 sixdmodel.sixd_utils.draw_axis(im0, y_pred_deg, p_pred_deg, r_pred_deg, tdx=int(kpts[6]), tdy=int(kpts[7]), size=bbox_width)
@@ -457,8 +422,6 @@ def detect(opt):
 
     print(f'Done. ({time.time() - t0:.3f}s)')
 
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default='yolov5s.pt', help='model.pt path(s)')
@@ -488,11 +451,22 @@ if __name__ == '__main__':
     parser.add_argument('--kpt-label', type=int, default=5, help='number of keypoints')
     parser.add_argument('--use-dof', action='store_true', help="use 6dof model (sixdrepnet)")
     parser.add_argument('--save-dof', default='store_true', help="visualize 6dof results")
+    parser.add_argument('--server', action='store_true', help="activate server")
     opt = parser.parse_args()
     print(opt)
     #check_requirements(exclude=('tensorboard', 'pycocotools', 'thop'))
-    procs = []
-    proc_server = Process(target=server, args=(opt,))
+
+    # Server initilaizer
+    if opt.server == True:
+        opt.server_host = "163.152.172.78"
+        # opt.server_host = ""
+        opt.server_port = 10243
+        opt.servers = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        opt.servers.bind((opt.server_host, opt.server_port))
+        print("Waiting for client to connect...")
+        opt.servers.listen(1)
+        opt.server_conn, opt.server_addr = opt.servers.accept()
+        print('Connected by ', opt.server_addr)
 
     with torch.no_grad():
         if opt.update:  # update all models (to fix SourceChangeWarning)
@@ -500,10 +474,5 @@ if __name__ == '__main__':
                 detect(opt=opt)
                 strip_optimizer(opt.weights)
         else:
-            # detect(opt=opt)
-            proc_detector = Process(target=detect, args=(opt,))
+            detect(opt=opt)
         
-        procs.append(proc_detector)
-        proc_detector.start()
-        procs.append(proc_server)
-        proc_server.start()
