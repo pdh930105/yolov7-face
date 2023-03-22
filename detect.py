@@ -452,14 +452,16 @@ if __name__ == '__main__':
     parser.add_argument('--use-dof', action='store_true', help="use 6dof model (sixdrepnet)")
     parser.add_argument('--save-dof', default='store_true', help="visualize 6dof results")
     parser.add_argument('--server', action='store_true', help="activate server")
+    parser.add_argument('--ip_addr', default='localhost', help="required socket ip (local ip addr)")
     opt = parser.parse_args()
     print(opt)
     #check_requirements(exclude=('tensorboard', 'pycocotools', 'thop'))
 
     # Server initilaizer
     if opt.server == True:
-        opt.server_host = "163.152.172.78"
-        # opt.server_host = ""
+        # opt.server_host = "163.152.172.78"
+        assert opt.ip_addr !='localhost', "required ip_addr for using --server option"
+        opt.server_host = opt.ip_addr
         opt.server_port = 10243
         opt.servers = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         opt.servers.bind((opt.server_host, opt.server_port))
