@@ -9,6 +9,7 @@ ENV DEBIAN_FRONTEND noninteractive
 ARG USER_ID
 ARG GROUP_ID
 ARG USER_NAME
+# removing wifi/ip error
 RUN apt-get clean
 RUN rm -rf /var/atp/lists/*
 # this line change to ubuntu archive
@@ -51,15 +52,9 @@ RUN echo $USER_NAME:$USER_NAME|chpasswd
 RUN adduser ${USER_NAME} sudo
 RUN echo ${USER_NAME}' ALL=NOPASSWD: ALL' >> /etc/sudoers
 
-# Copy binaries from builder stage
-#COPY --from=librealsense-builder /opt/librealsense /usr/local/
-#COPY --from=librealsense-builder /usr/lib/python3/dist-packages/pyrealsense2 /usr/lib/python3.8/dist-packages/
-#COPY --from=librealsense-builder /usr/src/librealsense/config/99-realsense-libusb.rules /etc/udev/rules.d/
 ENV PYTHONPATH=$PYTHONPATH:/usr/local/lib
 
-# # Install dep packages
-RUN apt-get clean
-RUN rm -rf /var/atp/lists/*
+# # Install dep packages (for opencv & pyqt)
 RUN apt-get update && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
     libusb-1.0-0 \
@@ -70,6 +65,7 @@ RUN apt-get update && apt-get upgrade -y \
     software-properties-common \
     python3-pyqt5*
 
+# visualize app and camera tool updates
 RUN apt-get install vim -y
 RUN apt-get install tmux -y
 RUN apt-get install libgl1-mesa-glx -y
@@ -84,12 +80,13 @@ RUN apt-get install '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-d
 RUN apt-get autoremove -y
 RUN apt-get clean
 
+# get librealsense
 WORKDIR /usr/src
 RUN echo $PWD
-RUN ls $PWD
 RUN git clone https://github.com/IntelRealSense/librealsense.git
-# Build and install
 RUN ls $PWD
+
+# Build and install librealsense
 RUN cd /usr/src/librealsense \
     && mkdir build && cd build \
     && cmake ../ \
@@ -123,7 +120,7 @@ RUN pip3 install -U onnxsim
 
 RUN pip3 install -U seaborn
 RUN pip3 install -U loguru
-RUN pip3 install -U numpy==1.22.1 # same setting trt
+RUN pip3 install -U numpy==1.22.1 # same setting trt version
 RUN pip3 install -U pyyaml
 
 USER ${USER_NAME}
@@ -135,5 +132,5 @@ ENV NVIDIA_VISIBLE_DEVICES all
 ENV NVIDIA_DRIVER_CAPABILITIES all
 ENV PATH=/usr/local/cuda/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ENV CUDA_HOME=/usr/local/cuda
-ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/lib64:
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/lib64
 ENV DEBIAN_FRONTEND=noninteractive
