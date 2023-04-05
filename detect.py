@@ -198,17 +198,17 @@ def detect(opt):
                     # Print results
                     if print_log:
                         if det_trigger and use_dof:
-                            print(f'{s} total inference time. ({post_dof_time - t0:.3f}s)')
-                            print(f'{s} prepare time. ({pre_inf_time- t0:.3f}s)')
-                            print(f'{s} yolo inference time. ({post_inf_time-pre_inf_time:.3f}s)')
-                            print(f'{s} nms time. ({post_nms_time-post_inf_time:.3f}s)')
-                            print(f'{s} prepare dof time. ({pre_dof_time-post_nms_time:.3f}s)')                           
-                            print(f'{s} post dof time. ({post_dof_time-pre_dof_time:.3f}s)')
+                            print(f'{s} total inference time. ({post_dof_time - t0:.3f}s {1 /(post_dof_time - t0):.2f} FPS)')
+                            print(f'{s} prepare time. ({pre_inf_time- t0:.3f}s {1 /(pre_inf_time- t0):.2f} FPS)')
+                            print(f'{s} yolo inference time. ({post_inf_time-pre_inf_time:.3f}s {1 /(post_inf_time - pre_inf_time):.2f} FPS)')
+                            print(f'{s} nms time. ({post_nms_time-post_inf_time:.3f}s {1 /(post_nms_time -post_inf_time):.2f} FPS)')
+                            print(f'{s} prepare dof time. ({pre_dof_time-post_nms_time:.3f}s {1 /(pre_dof_time - post_nms_time):.2f} FPS)')                           
+                            print(f'{s} post dof time. ({post_dof_time-pre_dof_time:.3f}s {1 /(post_dof_time - pre_dof_time):.2f} FPS)')
                         else:
-                            print(f'{s} total inference time. ({post_dof_time - t0:.3f}s)')
-                            print(f'{s} prepare time. ({pre_inf_time- t0:.3f}s)')
-                            print(f'{s} yolo inference time. ({post_inf_time-pre_inf_time:.3f}s)')
-                            print(f'{s} nms time. ({post_nms_time-post_inf_time:.3f}s)')
+                            print(f'{s} total inference time. ({post_dof_time - t0:.3f}s {1 /(post_dof_time - t0):.2f} FPS)')
+                            print(f'{s} prepare time. ({pre_inf_time- t0:.3f}s {1 /(pre_inf_time - t0):.2f} FPS)')
+                            print(f'{s} yolo inference time. ({post_inf_time-pre_inf_time:.3f}s {1 /(post_inf_time - pre_inf_time):.2f} FPS)')
+                            print(f'{s} nms time. ({post_nms_time-post_inf_time:.3f}s {1 /(post_nms_time - post_inf_time):.2f} FPS)')
                             
 
                     for c in det[:, 5].unique():
@@ -241,9 +241,10 @@ def detect(opt):
                                     except Exception as e:
                                         print(data), print(e)
                                 else:
-                                    print("degree : ", p_pred_deg, y_pred_deg, r_pred_deg)
-                                    print("center x,y (nose point) = ", int(kpts[6]), int(kpts[7]))
-                                    print("kpts : = ", kpts)
+                                    pass
+                                    #print("degree : ", p_pred_deg, y_pred_deg, r_pred_deg)
+                                    #print("center x,y (nose point) = ", int(kpts[6]), int(kpts[7]))
+                                    #print("kpts : = ", kpts)
                                     
                                 sixdmodel.sixd_utils.draw_axis(im0, y_pred_deg, p_pred_deg, r_pred_deg, tdx=int(kpts[6]), tdy=int(kpts[7]), size=bbox_width)
                         
@@ -373,17 +374,17 @@ def detect(opt):
                     # Print inference time log
                     if print_log:
                         if det_trigger and use_dof:
-                            print(f'{s} total inference time. ({post_dof_time - t0:.3f}s)')
-                            print(f'{s} prepare time. ({pre_inf_time- t0:.3f}s)')
-                            print(f'{s} yolo inference time. ({post_inf_time-pre_inf_time:.3f}s)')
-                            print(f'{s} nms time. ({post_nms_time-post_inf_time:.3f}s)')
-                            print(f'{s} prepare dof time. ({pre_dof_time-post_nms_time:.3f}s)')                           
-                            print(f'{s} post dof time. ({post_dof_time-pre_dof_time:.3f}s)')
+                            print(f'{s} total inference time. ({post_dof_time - t0:.3f}s {1 /(post_dof_time - t0):.2f} FPS)')
+                            print(f'{s} prepare time. ({pre_inf_time- t0:.3f}s {1 /(pre_inf_time- t0):.2f} FPS)')
+                            print(f'{s} yolo inference time. ({post_inf_time-pre_inf_time:.3f}s {1 /(post_inf_time - pre_inf_time):.2f} FPS)')
+                            print(f'{s} nms time. ({post_nms_time-post_inf_time:.3f}s {1 /(post_nms_time -post_inf_time):.2f} FPS)')
+                            print(f'{s} prepare dof time. ({pre_dof_time-post_nms_time:.3f}s {1 /(pre_dof_time - post_nms_time):.2f} FPS)')                           
+                            print(f'{s} post dof time. ({post_dof_time-pre_dof_time:.3f}s {1 /(post_dof_time - pre_dof_time):.2f} FPS)')
                         else:
-                            print(f'{s} total inference time. ({post_dof_time - t0:.3f}s)')
-                            print(f'{s} prepare time. ({pre_inf_time- t0:.3f}s)')
-                            print(f'{s} yolo inference time. ({post_inf_time-pre_inf_time:.3f}s)')
-                            print(f'{s} nms time. ({post_nms_time-post_inf_time:.3f}s)')
+                            print(f'{s} total inference time. ({post_dof_time - t0:.3f}s {1 /(post_dof_time - t0):.2f} FPS)')
+                            print(f'{s} prepare time. ({pre_inf_time- t0:.3f}s {1 /(pre_inf_time - t0):.2f} FPS)')
+                            print(f'{s} yolo inference time. ({post_inf_time-pre_inf_time:.3f}s {1 /(post_inf_time - pre_inf_time):.2f} FPS)')
+                            print(f'{s} nms time. ({post_nms_time-post_inf_time:.3f}s {1 /(post_nms_time - post_inf_time):.2f} FPS)')
 
                     # Print results
                     for c in det[:, 5].unique():
@@ -405,12 +406,13 @@ def detect(opt):
                             plot_one_box(xyxy, im0, label=label, color=colors(c, True), line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3, orig_shape=im0.shape[:2])
                             if opt.save_crop:
                                 save_one_box(xyxy, im0s, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
-                            if save_face_img or view_img:
+                            if (save_face_img or view_img) and use_dof:
                                 result_dof =result_dof_list[det_index]
                                 center_value, bbox_width, p_pred_deg, y_pred_deg, r_pred_deg = result_dof
-                                print("degree : ", p_pred_deg, y_pred_deg, r_pred_deg)
-                                print("center x,y (nose point) = ", int(kpts[6]), int(kpts[7]))
-                                print("kpts : = ", kpts)
+                                
+                                #print("degree : ", p_pred_deg, y_pred_deg, r_pred_deg)
+                                #print("center x,y (nose point) = ", int(kpts[6]), int(kpts[7]))
+                                #print("kpts : = ", kpts)
                                 
                                 #sixdmodel.sixd_utils.plot_pose_cube(im0, y_pred_deg, p_pred_deg, r_pred_deg, tdx=center_value[0], tdy=center_value[1], size=bbox_width)
                                 #print("noise x, y = ", kpts[4], kpts[5])

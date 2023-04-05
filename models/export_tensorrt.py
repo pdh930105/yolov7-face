@@ -367,6 +367,7 @@ class EngineBuilder:
                 print(layer)
                 print(layer.get_output(0))
                 self.network.mark_output(layer.get_output(0))
+                self.network.mark_output(self.network.get_output(0))
             else:
                 creator = registry.get_plugin_creator("EfficientNMS_TRT", "1")
                 assert(creator)

@@ -36,27 +36,34 @@ cd yolov7-face
 ## demo in pytorch (+ 6dof)
 #### demo yolov7-face image
 ```
+# if you want to latency check append --print-log option
+# without 6dof result
 python3 detect.py --weights yolov7-tiny-face.pt --source img_path
-# if you want to 6dof result
+
+# with to 6dof result
 python3 detect.py --weights yolov7-tiny-face.pt --source img_path --use-dof # (--save-dof for save result) 
+
+
 ```
 
 #### demo yolov7-face webcam (or video)
 ```
+# if you want to latency check append --print-log option
+# without 6dof result
 python3 detect.py --weights yolov7-tiny-face.pt --source 0 or video_path # (0 is webcam index)
 
-# if you want 6dof result
-
+# with 6dof result
 python3 detect.py --weights yolov7-tiny-face.pt --source 0 or video_path --use-dof # (--save-dof for save result) 
 
 ```
 
 #### demo yolov7-face realsense (only run desktop environment, because Orin does not support pyrealsense2)
 ```
+# if you want to latency check append --print-log option
+# without 6dof result
 python3 detect.py --weights yolov7-tiny-face.pt --source 'rgb' --use-rs # 'infrared' supported future works
 
-# if you want 6dof result
-
+#with 6dof result
 python3 detect.py --weights yolov7-tiny-face.pt --source 'rgb' --use-rs --use-dof # (--save-dof for save result) 
 
 ```
