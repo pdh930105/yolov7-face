@@ -35,6 +35,7 @@ def detect(opt):
     use_rs = opt.use_rs
     
     use_dof = opt.use_dof
+    print_log = opt.print_log
     # Directories
     save_dir = increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok)  # increment run
     (save_dir / 'labels' if (save_txt or save_txt_tidl) else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
@@ -107,6 +108,7 @@ def detect(opt):
         model(torch.zeros(1, 3, imgsz[0], imgsz[1]).to(device).type_as(next(model.parameters())))  # run once
     t0 = time.time()
     if use_rs:
+        print("using realsense face detection (optionally dof return) ")
         for path, img, im0s, depth, depth0s, vid_cap in dataset:
             img = torch.from_numpy(img).to(device)
             img = img.half() if half else img.float()  # uint8 to fp16/32
@@ -115,11 +117,14 @@ def detect(opt):
                 img = img.unsqueeze(0)
 
             # Inference
-            t1 = time_synchronized()
+            pre_inf_time = time_synchronized()
             pred = model(img, augment=opt.augment)
             # Apply NMS
+            post_inf_time = time_synchronized()
             pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms, kpt_label=kpt_label)
-            t2 = time_synchronized()
+            post_nms_time = time_synchronized()
+            
+            det_trigger=False
 
             # Apply Classifier
             if classify:
@@ -138,14 +143,13 @@ def detect(opt):
                 s += '%gx%g ' % img.shape[2:]  # print string
                 gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
                 if len(det):
+                    # detect success
+                    det_trigger=True
                     # Rescale boxes from img_size to im0 size
                     result_dof_list = []
+                    pre_dof_time = time_synchronized()
                     if use_dof:
                         for det_idx, det_box in enumerate(det[:, :4]):
-                            #img shape = (3,416,416) / det [lu_x, lu_y, rb_x, rb_y]
-                            #c1 = (int(det_box[0]), int(det_box[1]))
-                            #c2 = (int(det_box[2]), int(det_box[3]))
-                            #print(f"c1, c2 = {c1}, {c2}")
                             x_min, y_min, x_max, y_max = int(det_box[0]), int(det_box[1]), int(det_box[2]), int(det_box[3])
                             bbox_width = abs(x_max - x_min)
                             bbox_height = abs(y_max - y_min)
@@ -159,7 +163,6 @@ def detect(opt):
                             img_resize = (img_resize - mean) / std # normalize
                             out = sixdofmodel(img_resize) # compute rotate matrix
                             if sixdofmodel.postprocess:
-                                # 
                                 euler = sixdmodel.sixd_utils.compute_euler_angles_from_rotation_matrices(out)* 180/np.pi
                             else:
                                 R_pred = sixdmodel.sixd_utils.compute_rotation_matrices_from_ortho6d(out)
@@ -184,12 +187,30 @@ def detect(opt):
                                 np_img = np_img.astype(np.uint8)
                                 save_face_img_path = str(save_dir / f'face_img_{det_idx}.jpg')
                                 cv2.imwrite(save_face_img_path, np_img)
+
+                            # future work, we re-design break to big boxes select
+                            break
                             
-                    t3 = time_synchronized()
+                    post_dof_time = time_synchronized()
                     scale_coords(img.shape[2:], det[:, :4], im0.shape, kpt_label=False)
                     scale_coords(img.shape[2:], det[:, 6:], im0.shape, kpt_label=kpt_label, step=3)
 
                     # Print results
+                    if print_log:
+                        if det_trigger and use_dof:
+                            print(f'{s} total inference time. ({post_dof_time - t0:.3f}s)')
+                            print(f'{s} prepare time. ({pre_inf_time- t0:.3f}s)')
+                            print(f'{s} yolo inference time. ({post_inf_time-pre_inf_time:.3f}s)')
+                            print(f'{s} nms time. ({post_nms_time-post_inf_time:.3f}s)')
+                            print(f'{s} prepare dof time. ({pre_dof_time-post_nms_time:.3f}s)')                           
+                            print(f'{s} post dof time. ({post_dof_time-pre_dof_time:.3f}s)')
+                        else:
+                            print(f'{s} total inference time. ({post_dof_time - t0:.3f}s)')
+                            print(f'{s} prepare time. ({pre_inf_time- t0:.3f}s)')
+                            print(f'{s} yolo inference time. ({post_inf_time-pre_inf_time:.3f}s)')
+                            print(f'{s} nms time. ({post_nms_time-post_inf_time:.3f}s)')
+                            
+
                     for c in det[:, 5].unique():
                         n = (det[:, 5] == c).sum()  # detections per class
                         s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
@@ -224,9 +245,10 @@ def detect(opt):
                                     print("center x,y (nose point) = ", int(kpts[6]), int(kpts[7]))
                                     print("kpts : = ", kpts)
                                     
-                                #sixdmodel.sixd_utils.plot_pose_cube(im0, y_pred_deg, p_pred_deg, r_pred_deg, tdx=center_value[0], tdy=center_value[1], size=bbox_width)
-                                #print("noise x, y = ", kpts[4], kpts[5])
                                 sixdmodel.sixd_utils.draw_axis(im0, y_pred_deg, p_pred_deg, r_pred_deg, tdx=int(kpts[6]), tdy=int(kpts[7]), size=bbox_width)
+                        
+                        # future work, we re-design break to big boxes select
+                        break       
 
                     if save_txt_tidl:  # Write to file in tidl dump format
                         for *xyxy, conf, cls in det_tidl:
@@ -234,11 +256,6 @@ def detect(opt):
                             line = (conf, cls,  *xyxy) if opt.save_conf else (cls, *xyxy)  # label format
                             with open(txt_path + '.txt', 'a') as f:
                                 f.write(('%g ' * len(line)).rstrip() % line + '\n')
-
-                # Print time (inference + NMS)
-                # print(f'{s} yolo predict Done. ({t2 - t1:.3f}s)')
-                # if use_dof:
-                #     print(f'{s} 6dof predict Done. ({t3 - t2:.3f}s)')
 
                 # Stream results
                 if view_img:
@@ -274,11 +291,14 @@ def detect(opt):
                 img = img.unsqueeze(0)
 
             # Inference
-            t1 = time_synchronized()
+            pre_inf_time = time_synchronized()
             pred = model(img, augment=opt.augment)
             # Apply NMS
+            post_inf_time = time_synchronized()
             pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms, kpt_label=kpt_label)
-            t2 = time_synchronized()
+            post_nms_time = time_synchronized()
+            
+            det_trigger=False
 
             # Apply Classifier
             if classify:
@@ -297,14 +317,13 @@ def detect(opt):
                 s += '%gx%g ' % img.shape[2:]  # print string
                 gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
                 if len(det):
+                    # detect success
+                    det_trigger=True
                     # Rescale boxes from img_size to im0 size
                     result_dof_list = []
+                    pre_dof_time = time_synchronized()
                     if use_dof:
                         for det_idx, det_box in enumerate(det[:, :4]):
-                            #img shape = (3,416,416) / det [lu_x, lu_y, rb_x, rb_y]
-                            #c1 = (int(det_box[0]), int(det_box[1]))
-                            #c2 = (int(det_box[2]), int(det_box[3]))
-                            #print(f"c1, c2 = {c1}, {c2}")
                             x_min, y_min, x_max, y_max = int(det_box[0]), int(det_box[1]), int(det_box[2]), int(det_box[3])
                             bbox_width = abs(x_max - x_min)
                             bbox_height = abs(y_max - y_min)
@@ -318,7 +337,6 @@ def detect(opt):
                             img_resize = (img_resize - mean) / std # normalize
                             out = sixdofmodel(img_resize) # compute rotate matrix
                             if sixdofmodel.postprocess:
-                                # 
                                 euler = sixdmodel.sixd_utils.compute_euler_angles_from_rotation_matrices(out)* 180/np.pi
                             else:
                                 R_pred = sixdmodel.sixd_utils.compute_rotation_matrices_from_ortho6d(out)
@@ -343,10 +361,29 @@ def detect(opt):
                                 np_img = np_img.astype(np.uint8)
                                 save_face_img_path = str(save_dir / f'face_img_{det_idx}.jpg')
                                 cv2.imwrite(save_face_img_path, np_img)
+
+                            # future work, we re-design break to big boxes select
+                            break
                             
-                    t3 = time_synchronized()
+                    post_dof_time = time_synchronized()
+                    # Rescale boxes from img_size to im0 size
                     scale_coords(img.shape[2:], det[:, :4], im0.shape, kpt_label=False)
                     scale_coords(img.shape[2:], det[:, 6:], im0.shape, kpt_label=kpt_label, step=3)
+
+                    # Print inference time log
+                    if print_log:
+                        if det_trigger and use_dof:
+                            print(f'{s} total inference time. ({post_dof_time - t0:.3f}s)')
+                            print(f'{s} prepare time. ({pre_inf_time- t0:.3f}s)')
+                            print(f'{s} yolo inference time. ({post_inf_time-pre_inf_time:.3f}s)')
+                            print(f'{s} nms time. ({post_nms_time-post_inf_time:.3f}s)')
+                            print(f'{s} prepare dof time. ({pre_dof_time-post_nms_time:.3f}s)')                           
+                            print(f'{s} post dof time. ({post_dof_time-pre_dof_time:.3f}s)')
+                        else:
+                            print(f'{s} total inference time. ({post_dof_time - t0:.3f}s)')
+                            print(f'{s} prepare time. ({pre_inf_time- t0:.3f}s)')
+                            print(f'{s} yolo inference time. ({post_inf_time-pre_inf_time:.3f}s)')
+                            print(f'{s} nms time. ({post_nms_time-post_inf_time:.3f}s)')
 
                     # Print results
                     for c in det[:, 5].unique():
@@ -379,6 +416,8 @@ def detect(opt):
                                 #print("noise x, y = ", kpts[4], kpts[5])
 
                                 sixdmodel.sixd_utils.draw_axis(im0, y_pred_deg, p_pred_deg, r_pred_deg, tdx=int(kpts[6]), tdy=int(kpts[7]), size=bbox_width)
+                        # future work, we re-design break to big boxes select
+                        break
 
                     if save_txt_tidl:  # Write to file in tidl dump format
                         for *xyxy, conf, cls in det_tidl:
@@ -386,10 +425,6 @@ def detect(opt):
                             line = (conf, cls,  *xyxy) if opt.save_conf else (cls, *xyxy)  # label format
                             with open(txt_path + '.txt', 'a') as f:
                                 f.write(('%g ' * len(line)).rstrip() % line + '\n')
-
-                # Print time (inference + NMS)
-                # print(f'{s} yolo predict Done. ({t2 - t1:.3f}s)')
-                # print(f'{s} 6dof predict Done. ({t3 - t2:.3f}s)')
 
                 # Stream results
                 if view_img:
@@ -415,6 +450,10 @@ def detect(opt):
                                 save_path += '.mp4'
                             vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
                         vid_writer.write(im0)
+        if print_log:
+            total_time = time_synchronized()
+            print(f'{s} total time. ({total_time - t0:.3f}s) (inference + visualize and save)')
+
 
     if save_txt or save_txt_tidl or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt or save_txt_tidl else ''
@@ -453,6 +492,7 @@ if __name__ == '__main__':
     parser.add_argument('--save-dof', default='store_true', help="visualize 6dof results")
     parser.add_argument('--server', action='store_true', help="activate server")
     parser.add_argument('--ip_addr', default='localhost', help="required socket ip (local ip addr)")
+    parser.add_argument('--print-log', action='store_true', default=False, help="print time log and result")
     opt = parser.parse_args()
     print(opt)
     #check_requirements(exclude=('tensorboard', 'pycocotools', 'thop'))
