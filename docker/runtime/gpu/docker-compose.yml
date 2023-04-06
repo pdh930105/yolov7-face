@@ -1,0 +1,32 @@
+version: '3.3'
+services:
+        yolo_face_runtime_2210:
+          build:
+            context: ./
+          image: "yolo_face_runtime:2210"
+          container_name: ${CONTAINERNAME}  #"yolo_2210_pdh" 
+          network_mode: "host"
+          volumes:
+            #- "/home/pdh/torch:/home/${USERNAME}/torch"
+            - "/dev/:/dev/"
+            - "/tmp/.X11-unix:/tmp/.X11-unix"
+            - "/dev/snd:/dev/snd"
+            - "$HOME/.Xauthority:/$HOME/.Xauthority:rw"
+            - "/dataset:/dataset"
+            - "/data:/data"
+            - "$HOME/log:/workspace/log"
+            #- "/home/${USERNAME}/.ssh/:/home/${USERNAME}/.ssh/"
+          environment:
+            - "DISPLAY"
+          device_cgroup_rules:
+            - "c 81:* rmw"
+            - "c 189:* rmw"
+          deploy:
+            resources:
+              reservations:
+                devices:
+                  - driver: nvidia
+                    #device_ids: ['1','2']
+                    capabilities: [gpu]
+          stdin_open: true
+          tty: true
