@@ -6,9 +6,10 @@ import cv2
 import matplotlib.pyplot as plt
 import torch
 import torchvision
+import time
 
 class BaseEngine(object):
-    def __init__(self, engine_path, logger):
+    def __init__(self, engine_path, logger, print_log=False):
         self.mean = None
         self.std = None
         self.n_classes = 1
@@ -16,6 +17,7 @@ class BaseEngine(object):
         self.use_onnx_trt = False
         self.class_names = ['face']
         self.logger =logger
+        self.print_log = print_log
 
         logger = trt.Logger(trt.Logger.WARNING)
         logger.min_severity = trt.Logger.Severity.ERROR
@@ -62,40 +64,51 @@ class BaseEngine(object):
         return data
 
     def inference(self, img_path, conf=0.5, end2end=False):
+        start_time = time.perf_counter()
         origin_img = cv2.imread(img_path)
         #img, ratio = preproc_pad(origin_img, self.imgsz, self.mean, self.std)
         #data = self.infer(img)
         
         if end2end:
+            prepare_img_time = time.perf_counter()
             img, ratio = preproc_pad(origin_img, self.imgsz, self.mean, self.std)
+            preprocess_img_time = time.perf_counter()
             data = self.infer(img)
+            infer_time = time.perf_counter()
             if self.use_onnx_trt:
                 raise
             else:
                 num, final_boxes, final_scores, final_cls_inds = data
-                for trt_output in data:
-                    print(trt_output.shape)
-                print(num[num>100])
+
                 final_boxes = np.reshape(final_boxes/ratio, (-1, 4))
                 dets = np.concatenate([final_boxes[:num[0]], np.array(final_scores)[:num[0]].reshape(-1, 1), np.array(final_cls_inds)[:num[0]].reshape(-1, 1)], axis=-1)
-                print("num : ", num)
-                print("final boxes: ", final_boxes)
-                print("score : ", final_scores[:num[0]])
-                print("final cls inds :", final_cls_inds)
+
                 if dets is not None:
                     final_boxes, final_scores, final_classes = dets[:,:4], dets[:, 4], dets[:, 5]
                     origin_img = vis_end2end(origin_img, final_boxes, final_scores, final_classes,
                                     conf=conf, class_names=self.class_names)
+                    post_process_time = time.perf_counter()
+                if self.print_log:
+                    for trt_output in data:
+                        print(trt_output.shape)
+                    print("num : ", num)
+                    print("final boxes: ", final_boxes)
+                    print("score : ", final_scores[:num[0]])
+                    print("final cls inds :", final_cls_inds)
+                    print(f"total inference time : {post_process_time-start_time:.3f}s ({1/(post_process_time-start_time):.3f} FPS)")
+                    print(f"img read time : {prepare_img_time-start_time:.3f}s")
+                    print(f"img preprocess time : {preprocess_img_time-prepare_img_time:.3f}s")
+                    print(f"infer time : {infer_time-preprocess_img_time:.3f}s")
+                    print(f"post process time : {post_process_time - infer_time:.3f}")
+                    
+
         else:
             resized_img, resized_img_tran = preproc(origin_img, self.imgsz)
             data = self.infer(resized_img_tran)
             #predictions = np.reshape(data, (1, -1, int(5+self.n_classes + self.nkpt*3)))[0] # does not using batch inference
             #dets = self.postprocess(predictions,ratio)
             #self.logger.info(f'data shape : {data.shape}')
-            print(len(data))
             predictions = np.reshape(data, (1, -1, int(5+self.n_classes + self.nkpt*3))) # does not using batch inference        
-            print(predictions[:, :, 4].max())
-            print(predictions[:, :, 5].max())
             self.logger.info("post process start")
             dets = self.postprocess_ops_nms(predictions=predictions)[0]
             #print("output", len(dets), print(dets[0]))
@@ -103,6 +116,11 @@ class BaseEngine(object):
                 final_boxes, final_scores, final_key_points = dets[:,:4], dets[:, 4], dets[:, 5:]
                 origin_img = vis(resized_img, final_boxes, final_scores, final_key_points,
                                 conf=conf, class_names=self.class_names)
+            if self.print_log:
+                print(len(data))
+                print(predictions[:, :, 4].max())
+                print(predictions[:, :, 5].max())
+                
         return origin_img
 
     @staticmethod
@@ -170,7 +188,6 @@ class BaseEngine(object):
         return output
         
     def get_fps(self):
-        import time
         img = np.ones((1,3,self.imgsz[0], self.imgsz[1]))
         img = np.ascontiguousarray(img, dtype=np.float32)
         for _ in range(5):  # warmup
@@ -179,7 +196,8 @@ class BaseEngine(object):
         t0 = time.perf_counter()
         for _ in range(100):  # calculate average time
             _ = self.infer(img)
-        print(100/(time.perf_counter() - t0), 'FPS')
+        t1 = time.perf_counter()
+        print(f"yolo model inference (without preprocess, postprocess)\n{(t1 - t0)/100:.3f}s ({100/(t1 - t0):.3f} FPS)")
     
     def detect_video(self, video_path, use_cam=True,conf=0.5, end2end=False):
         if use_cam:
