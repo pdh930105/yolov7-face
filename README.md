@@ -16,19 +16,18 @@ This code tested docker-compose version 1.29.2 (important) / docker version 20.1
 This code tested jetpack 5.0.1 (docker/jetson)
 
 #### prepare python library
-This code tested docker image nvcr.io/nvidia/pytorch:22.10-py3 (RTX3090), nvcr.io/nvidia/l4t-pytorch:r35.1.0-pth1.12-py3 (Jetson Orin)
+This code tested docker image nvcr.io/nvidia/pytorch:22.10-py3 (RTX3090), nvcr.io/nvidia/l4t-pytorch:r35.1.0-pth1.13-py3 (Jetson Orin)
 
 #### GPU setting
 ```
-cd ./docker/gpu
+cd ./docker/runtime/gpu
 sh compose.sh # setting to docker container
 cd yolov7-face
-pip install opencv-python # re-build opencv for environment setting and using cv2.imshow()
 ```
 
 #### jetson setting
 ```
-cd ./docker/jetson
+cd ./docker/runtime/jetson
 sh compose.sh # setting to docker container
 cd yolov7-face
 ```
@@ -57,7 +56,7 @@ python3 detect.py --weights yolov7-tiny-face.pt --source 0 or video_path --use-d
 
 ```
 
-#### demo yolov7-face realsense (only run desktop environment, because Orin does not support pyrealsense2)
+#### demo yolov7-face realsense
 ```
 # if you want to latency check append --print-log option
 # without 6dof result
@@ -104,7 +103,9 @@ python3 trt_inference/yolo_face_trt_inference.py -e yolov7-tiny-face.trt -v 0
 ```
 python3 trt_inference/yolo_face_trt_inference.py -e end2end.trt --end2end -v 0
 ```
-
+## Original ReadMe (https://github.com/derronqi/yolov7-face)
+### Run Realsense inference
+#### future work update
 
 ### New feature
 
