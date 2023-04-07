@@ -52,7 +52,8 @@ WORKDIR /home/${USER_NAME}
 RUN git clone https://github.com/pdh930105/yolov7-face.git
 
 WORKDIR /home/${USER_NAME}/yolov7-face
+RUN sh /opt/nvidia/nvidia_entrypoint.sh
+RUN pip install opencv-python==4.5.5.64
 
-
-ENTRYPOINT ["/opt/nvidia/nvidia_entrypoint.sh"]
+#ENTRYPOINT ["/opt/nvidia/nvidia_entrypoint.sh"]
 

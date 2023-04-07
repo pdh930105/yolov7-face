@@ -36,9 +36,11 @@ RUN pip install -U loguru
 RUN pip install -U pyrealsense2
 
 WORKDIR /workspace/
-RUN umask 0000
 RUN mkdir log
 RUN git clone https://github.com/pdh930105/yolov7-face.git
+RUN sh /opt/nvidia/nvidia_entrypoint.sh
+#RUN pip install opencv-python==4.5.5.64
+RUN pip install opencv-python==4.1.2.30
 
-ENTRYPOINT ["/opt/nvidia/nvidia_entrypoint.sh"]
+#ENTRYPOINT ["/opt/nvidia/nvidia_entrypoint.sh"]
 
