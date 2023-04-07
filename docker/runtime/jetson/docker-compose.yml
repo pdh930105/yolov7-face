@@ -17,7 +17,7 @@ services:
             - "/dev/video5:/dev/video5"
             - "/tmp/.X11-unix:/tmp/.X11-unix"
             - "/dev/snd:/dev/snd"
-            - "$HOME/.Xauthority:/$HOME/.Xauthority:rw"
+            - "$HOME/.Xauthority:/root/.Xauthority:rw"
             - "/$PWD/log:/workspace/log"
           runtime: "nvidia"
           environment:
