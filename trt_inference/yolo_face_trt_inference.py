@@ -45,4 +45,5 @@ if __name__ == '__main__':
       cv2.imwrite("%s" %args.output, origin_img)
     if video:
       use_cam = True if video.isdigit() else False
-      pred.detect_video(video, conf=0.5, use_cam=use_cam, end2end=args.end2end) # set 0 use a webcam
+      pred.detect_video_v2(video, conf=0.5, use_cam=use_cam, end2end=args.end2end)
+      #pred.detect_video(video, conf=0.5, use_cam=use_cam, end2end=args.end2end) # set 0 use a webcam
