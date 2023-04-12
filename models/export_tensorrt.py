@@ -306,33 +306,6 @@ class EngineBuilder:
         
         # but YOLOv7-face landmark detector can't use EfficientNMS_TRT (EfficientNMS_TRT does not return the boxes index, so can't find the keypoint in selected box)
         if end2end:
-            previous_output = self.network.get_output(0)
-            self.network.unmark_output(previous_output)
-            # output [1, 25200, 21]
-            # slice boxes, obj_score, class_scores
-            strides = trt.Dims([1,1,1])
-            starts = trt.Dims([0,0,0])
-            bs, num_boxes, temp = previous_output.shape
-            shapes = trt.Dims([bs, num_boxes, 4])
-            # [0, 0, 0] [1, 25200, 4] [1, 1, 1]
-            boxes = self.network.add_slice(previous_output, starts, shapes, strides)
-            num_classes = temp - 5 - self.nkpt*3
-            print(num_classes)
-            starts[2] = 4
-            shapes[2] = 1
-            # [0, 0, 4] [1, 25200, 1] [1, 1, 1]
-            obj_score = self.network.add_slice(previous_output, starts, shapes, strides)
-            starts[2] = 5
-            shapes[2] = num_classes
-            # [0, 0, 5] [1, 25200, 1] [1, 1, 1]
-            scores = self.network.add_slice(previous_output, starts, shapes, strides)
-            # scores = obj_score * class_scores => [bs, num_boxes, nc]
-            updated_scores = self.network.add_elementwise(obj_score.get_output(0), scores.get_output(0), trt.ElementWiseOperation.PROD)
-            #starts[2] = 5 + num_classes
-            #shapes[2] = self.nkpt*3
-            # [0, 0, 6], [1, 25200, 15], [1, 1, 1]
-            #keypoints = self.network.add_slice(previous_output, starts, shapes, strides)
-
             '''
             "nms_type": "EfficientNMS_ONNX_TRT"
             "plugin_version": "1",
@@ -348,6 +321,32 @@ class EngineBuilder:
             assert(registry)
             
             if r_kpts:
+                previous_output = self.network.get_output(0)
+                # output [1, 25200, 21]
+                # slice boxes, obj_score, class_scores
+                strides = trt.Dims([1,1,1])
+                starts = trt.Dims([0,0,0])
+                bs, num_boxes, temp = previous_output.shape
+                shapes = trt.Dims([bs, num_boxes, 4])
+                # [0, 0, 0] [1, 25200, 4] [1, 1, 1]
+                boxes = self.network.add_slice(previous_output, starts, shapes, strides)
+                num_classes = temp - 5 - self.nkpt*3
+                starts[2] = 4
+                shapes[2] = 1
+                # [0, 0, 4] [1, 25200, 1] [1, 1, 1]
+                obj_score = self.network.add_slice(previous_output, starts, shapes, strides)
+                starts[2] = 5
+                shapes[2] = num_classes
+                # [0, 0, 5] [1, 25200, 1] [1, 1, 1]
+                scores = self.network.add_slice(previous_output, starts, shapes, strides)
+                # scores = obj_score * class_scores => [bs, num_boxes, nc]
+                updated_scores = self.network.add_elementwise(obj_score.get_output(0), scores.get_output(0), trt.ElementWiseOperation.PROD)
+                #starts[2] = 5 + num_classes
+                #shapes[2] = self.nkpt*3
+                # [0, 0, 6], [1, 25200, 15], [1, 1, 1]
+                #keypoints = self.network.add_slice(previous_output, starts, shapes, strides)
+
+ 
                 creator = registry.get_plugin_creator("EfficientNMS_ONNX_TRT", "1")
                 assert(creator)
                 fc = []
@@ -359,16 +358,42 @@ class EngineBuilder:
                 nms_layer = creator.create_plugin("nms_layer", fc)
 
                 layer = self.network.add_plugin_v2([boxes.get_output(0), updated_scores.get_output(0)], nms_layer)
-                layer.get_output(0).name = "num"
+                layer.get_output(0).name = "idx"
                 #selected_index_output_layer = self.network.add_gather(previous_output, layer.get_output(0), axis=1)
                 #self.network.mark_output(selected_index_output_layer.get_output(0))
                 #layer.get_output(0).name = "idx"
                 #return_nms_idx = layer.get_output(0)
-                print(layer)
-                print(layer.get_output(0))
+                print("layer type: ", layer)
+                print("layer output : ", layer.get_output(0))
                 self.network.mark_output(layer.get_output(0))
-                self.network.mark_output(self.network.get_output(0))
+                #self.network.mark_output(self.network.get_output(0))
             else:
+                previous_output = self.network.get_output(0)
+                self.network.unmark_output(previous_output)
+                # output [1, 25200, 21]
+                # slice boxes, obj_score, class_scores
+                strides = trt.Dims([1,1,1])
+                starts = trt.Dims([0,0,0])
+                bs, num_boxes, temp = previous_output.shape
+                shapes = trt.Dims([bs, num_boxes, 4])
+                # [0, 0, 0] [1, 25200, 4] [1, 1, 1]
+                boxes = self.network.add_slice(previous_output, starts, shapes, strides)
+                num_classes = temp - 5 - self.nkpt*3
+                starts[2] = 4
+                shapes[2] = 1
+                # [0, 0, 4] [1, 25200, 1] [1, 1, 1]
+                obj_score = self.network.add_slice(previous_output, starts, shapes, strides)
+                starts[2] = 5
+                shapes[2] = num_classes
+                # [0, 0, 5] [1, 25200, 1] [1, 1, 1]
+                scores = self.network.add_slice(previous_output, starts, shapes, strides)
+                # scores = obj_score * class_scores => [bs, num_boxes, nc]
+                updated_scores = self.network.add_elementwise(obj_score.get_output(0), scores.get_output(0), trt.ElementWiseOperation.PROD)
+                #starts[2] = 5 + num_classes
+                #shapes[2] = self.nkpt*3
+                # [0, 0, 6], [1, 25200, 15], [1, 1, 1]
+                #keypoints = self.network.add_slice(previous_output, starts, shapes, strides)
+
                 creator = registry.get_plugin_creator("EfficientNMS_TRT", "1")
                 assert(creator)
                 fc = []

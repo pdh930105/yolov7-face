@@ -1,28 +1,14 @@
 # Dataset utils and dataloaders
 
-import glob
-import logging
-import math
-import os
-import random
-import shutil
 import time
 from itertools import repeat
-from multiprocessing.pool import ThreadPool
-from pathlib import Path
 from threading import Thread
 
 import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
-from PIL import Image, ExifTags
-from torch.utils.data import Dataset
-from tqdm import tqdm
 
-from utils.general import check_requirements, xyxy2xywh, xywh2xyxy, xywhn2xyxy, xyn2xy, segment2box, segments2boxes, \
-    resample_segments, clean_str
-from utils.torch_utils import torch_distributed_zero_first
 import pyrealsense2 as rs
 
 def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
@@ -125,8 +111,8 @@ class LoadRealSense:  # multiple IP or RTSP cameras
                 frames = aligned_frames.get_color_frame() if self.sources == 'rgb' else aligned_frames.get_infrared_frame()
                 depth_frames = aligned_frames.get_depth_frame()
                 
-                self.imgs = [np.asanyarray(frames.get_data())]
-                self.depth_imgs = [np.asanyarray(depth_frames.get_data())]
+                self.imgs = np.asanyarray(frames.get_data())
+                self.depth_imgs = np.asanyarray(depth_frames.get_data())
                 
                 n = 0
             time.sleep(1 / self.fps)  # wait time
@@ -144,8 +130,8 @@ class LoadRealSense:  # multiple IP or RTSP cameras
             raise StopIteration
 
         # Letterbox
-        img = [letterbox(x, self.img_size, auto=self.rect, stride=self.stride)[0] for x in img0]
-        depth_img = [letterbox(x, self.img_size, auto=self.rect, stride=self.stride)[0] for x in depth_img0]
+        img, ratio = letterbox(img0, self.img_size, auto=self.rect, stride=self.stride) 
+        depth_img = letterbox(depth_img0, self.img_size, auto=self.rect, stride=self.stride)[0]
         # Stack
         img = np.stack(img, 0)
         depth_img = np.stack(depth_img, 0)

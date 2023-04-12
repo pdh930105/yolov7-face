@@ -9,8 +9,7 @@ import torchvision
 import time
 import pyrealsense2 as rs
 import sys
-sys.path.append('../')
-from utils.datasets import LoadImages, LoadStreams, LoadRealSense
+from load_process import LoadRealSense
 
 class BaseEngine(object):
     def __init__(self, engine_path, logger, print_log=False):
@@ -253,7 +252,12 @@ class BaseEngine(object):
             dets = self.postprocess_ops_nms(predictions)[0]
     
     def detect_rs(self, rs_type, conf=0.5):
-        pass
+        rs_stream = LoadRealSense(rs_type, img_size=self.imgsz, stride=32)
+        for source, img, img0, depth_img, depth_img0 in rs_stream:
+            t1 = time.perf_counter()
+            output = self.infer(img)
+            t2 = time.perf_counter()
+            
             
         
 def nms(boxes, scores, nms_thr):
