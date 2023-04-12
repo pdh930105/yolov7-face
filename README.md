@@ -83,14 +83,18 @@ python3 models/export_tensorrt.py -o yolov7-tiny-face.onnx -e yolov7-tiny-face.t
 python3 models/export_tensorrt.py -o yolov7-tiny-face.onnx -e end2end.trt --end2end
 ```
 #### Third. run trt model
-Run image inference
+Run image inference 
 ```
 # use pytorch nms
 python3 trt_inference/yolo_face_trt_inference.py -e yolov7-tiny-face.trt -i {image_path} -o {output_img_name}
 ```
 ```
+# add --print-log option visualize run fps
 # using end2end machine
-python3 trt_inference/yolo_face_trt_inference.py -e end2end.trt -i image.jpg --end2end
+python3 trt_inference/yolo_face_trt_inference.py -e {trt file} -i image.jpg --end2end
+
+# using end2end video
+python3 trt_inference/yolo_face_trt_inference.py -e {trt file} -v face_img.avi --end2end
 ```
 
 ### Run webcam inference

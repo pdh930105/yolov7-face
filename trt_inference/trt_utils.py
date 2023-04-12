@@ -263,10 +263,10 @@ class BaseEngine(object):
             cv2.destroyAllWindows()
             if self.print_log:
                 print("total frame : ", len(post_process_list))
-                print("preprocess average : ", np.array(img_preprocess_list).sum() / len(img_preprocess_list))
-                print("inference average : ", np.array(infer_process_list).sum() / len(infer_process_list))
-                print("postprocess average : ", np.array(post_process_list).sum() / len(post_process_list))
-                print("total process average : ", np.array(total_process_list).sum() / len(total_process_list))
+                print(f"preprocess average : {np.array(img_preprocess_list).sum() / len(img_preprocess_list):.3f} ms (max {max(img_preprocess_list):.3f}, min {min(img_preprocess_list):.3f})")
+                print(f"inference average : {np.array(infer_process_list).sum() / len(img_preprocess_list):.3f} ms (max {max(infer_process_list):.3f}, min {min(infer_process_list):.3f})")
+                print(f"postprocess average : {np.array(post_process_list).sum() / len(img_preprocess_list):.3f} ms (max {max(post_process_list):.3f}, min {min(post_process_list):.3f})")
+                print(f"total process average : {np.array(total_process_list).sum() / len(img_preprocess_list):.3f} ms (max {max(total_process_list):.3f}, min {min(total_process_list):.3f})")
 
         else:
             self.logger.info("post process start")
