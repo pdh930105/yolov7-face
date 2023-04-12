@@ -207,29 +207,41 @@ class BaseEngine(object):
             cap = cv2.VideoCapture(0)
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-            cap.set(cv2.CAP_PROP_FRAME_COUNT, 5)
+            cap.set(cv2.CAP_PROP_FRAME_COUNT, 30)
         else:
             cap = cv2.VideoCapture(video_path)
-        
+          
         #out = cv2.VideoWriter('./001.avi',fourcc,fps,(width,height))
         fps = 0
         import time
         if end2end:
+            img_preprocess_list = []
+            infer_process_list = []
+            post_process_list = []
+            total_process_list = []
             while True:
+                frame_pre_process_time = time.perf_counter()
                 ret, frame = cap.read()
-                print("frame : ", frame.shape)
                 if not ret:
                     break
+                if not use_cam:
+                    frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_AREA)
+                
                 blob, ratio = preproc_pad(frame, self.imgsz, self.mean, self.std)
-                t1 = time.time()
+                frame_post_process_time = time.perf_counter()
+                img_preprocess_list.append(frame_post_process_time-frame_pre_process_time)
                 data = self.infer(blob)
-                fps = (fps + (1. / (time.time() - t1))) / 2
+                infer_time = time.perf_counter()
+                infer_process_list.append(infer_time-frame_post_process_time)
+
+
+                fps = (fps + (1. / (time.time() - frame_pre_process_time))) / 2
                 resized_img = cv2.putText(blob, "FPS:%d " %fps, (0, 40), cv2.FONT_HERSHEY_SIMPLEX, 1,
                                     (0, 0, 255), 2)
             
                 num, final_boxes, final_scores, final_cls_inds = data
-                self.logger.info('detected face : ', num)
-                self.logger.info('boxes info :', final_boxes[:num[0]])
+                self.logger.info(f'detected face : {num}')
+                self.logger.info(f'boxes info : {final_boxes[:num[0]*4]}')
                 self.logger.info(f'predict : {final_scores[:num[0]]*100}%')
                 final_boxes = np.reshape(final_boxes/ratio, (-1, 4))
                 dets = np.concatenate([final_boxes[:num[0]], np.array(final_scores)[:num[0]].reshape(-1, 1), np.array(final_cls_inds)[:num[0]].reshape(-1, 1)], axis=-1)
@@ -239,13 +251,23 @@ class BaseEngine(object):
                     frame = vis_end2end(resized_img, final_boxes, final_scores, final_cls_inds,
                                     conf=conf, class_names=self.class_names)
                     vis_frame = frame[::-1,:, :].transpose([1,2,0])
-                    cv2.imshow('frame', vis_frame)
+                    #cv2.imshow('frame', vis_frame)
                 #out.write(frame)
+                post_process_time = time.perf_counter()
+                post_process_list.append(post_process_time-infer_time)
+                total_process_list.append(post_process_time - frame_pre_process_time)
                 if cv2.waitKey(25) & 0xFF == ord('q'):
                     break
             #out.release()
             cap.release()
             cv2.destroyAllWindows()
+            if self.print_log:
+                print("total frame : ", len(post_process_list))
+                print("preprocess average : ", np.array(img_preprocess_list).sum() / len(img_preprocess_list))
+                print("inference average : ", np.array(infer_process_list).sum() / len(infer_process_list))
+                print("postprocess average : ", np.array(post_process_list).sum() / len(post_process_list))
+                print("total process average : ", np.array(total_process_list).sum() / len(total_process_list))
+
         else:
             self.logger.info("post process start")
             predictions = np.reshape(data, (1, -1, int(5+self.n_classes+ self.nkpt*3)))[0]
@@ -257,6 +279,7 @@ class BaseEngine(object):
             t1 = time.perf_counter()
             output = self.infer(img)
             t2 = time.perf_counter()
+
             
             
         
