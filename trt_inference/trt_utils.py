@@ -30,6 +30,7 @@ class BaseEngine(object):
             serialized_engine = f.read()
         engine = runtime.deserialize_cuda_engine(serialized_engine)
         self.imgsz = engine.get_binding_shape(0)[2:]  # get the read shape of model, in case user input it wrong
+        print("self.imgsz :", self.imgsz)
         self.context = engine.create_execution_context()
         self.inputs, self.outputs, self.bindings = [], [], []
         self.stream = cuda.Stream()
@@ -216,20 +217,27 @@ class BaseEngine(object):
         import time
         if end2end:
             img_preprocess_list = []
+            img_read_list = []
+            img_resize_list = []
             infer_process_list = []
             post_process_list = []
             total_process_list = []
             while True:
                 frame_pre_process_time = time.perf_counter()
                 ret, frame = cap.read()
+                frame_read_process_time = time.perf_counter()
                 if not ret:
                     break
                 if not use_cam:
                     frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_AREA)
-                
+                frame_resize_process_time = time.perf_counter()
+
                 blob, ratio = preproc_pad(frame, self.imgsz, self.mean, self.std)
                 frame_post_process_time = time.perf_counter()
+                img_read_list.append(frame_read_process_time - frame_pre_process_time)
+                img_resize_list.append(frame_resize_process_time - frame_read_process_time)
                 img_preprocess_list.append(frame_post_process_time-frame_pre_process_time)
+                
                 data = self.infer(blob)
                 infer_time = time.perf_counter()
                 infer_process_list.append(infer_time-frame_post_process_time)
@@ -263,31 +271,35 @@ class BaseEngine(object):
             cv2.destroyAllWindows()
             if self.print_log:
                 print("total frame : ", len(post_process_list))
-                print(f"preprocess average : {np.array(img_preprocess_list).sum() / len(img_preprocess_list):.3f} ms (max {max(img_preprocess_list):.3f}, min {min(img_preprocess_list):.3f})")
-                print(f"inference average : {np.array(infer_process_list).sum() / len(img_preprocess_list):.3f} ms (max {max(infer_process_list):.3f}, min {min(infer_process_list):.3f})")
-                print(f"postprocess average : {np.array(post_process_list).sum() / len(img_preprocess_list):.3f} ms (max {max(post_process_list):.3f}, min {min(post_process_list):.3f})")
-                print(f"total process average : {np.array(total_process_list).sum() / len(img_preprocess_list):.3f} ms (max {max(total_process_list):.3f}, min {min(total_process_list):.3f})")
+                print(f"img read average : {np.array(img_read_list).sum() / len(img_preprocess_list):.3f} s (max {max(img_read_list):.3f}, min {min(img_read_list):.3f})")
+                print(f"img resize average : {np.array(img_resize_list).sum() / len(img_preprocess_list):.3f} s (max {max(img_resize_list):.3f}, min {min(img_resize_list):.3f})")
+                print(f"total preprocess average : {np.array(img_preprocess_list).sum() / len(img_preprocess_list):.3f} s (max {max(img_preprocess_list):.3f}, min {min(img_preprocess_list):.3f})")
+                print(f"inference average : {np.array(infer_process_list).sum() / len(img_preprocess_list):.3f} s (max {max(infer_process_list):.3f}, min {min(infer_process_list):.3f})")
+                print(f"postprocess average : {np.array(post_process_list).sum() / len(img_preprocess_list):.3f} s (max {max(post_process_list):.3f}, min {min(post_process_list):.3f})")
+                print(f"total process average : {np.array(total_process_list).sum() / len(img_preprocess_list):.3f} s (max {max(total_process_list):.3f}, min {min(total_process_list):.3f})")
 
         else:
             self.logger.info("post process start")
             predictions = np.reshape(data, (1, -1, int(5+self.n_classes+ self.nkpt*3)))[0]
-            dets = self.postprocess_ops_nms(predictions)[0]
+            dets = self.postprocess_ops_ns(predictions)[0]
 
     def detect_video_v2(self, video_path, use_cam=True,conf=0.5, end2end=False):
         
         #out = cv2.VideoWriter('./001.avi',fourcc,fps,(width,height))
         import time
-        video_stream = LoadImages(video_path, self.imgsz)
+        video_stream = LoadImages(video_path, self.imgsz[0])
+        fps=0
         if end2end:
             img_preprocess_list = []
             infer_process_list = []
             post_process_list = []
             total_process_list = []
             post_process_time = time.perf_counter()
+            start_time = post_process_time
             for source, img, img0, cap in video_stream:
                 frame_pre_process_time = time.perf_counter()
                 blob = img
-                img_preprocess_list.append(post_process_time-frame_pre_process_time)
+                img_preprocess_list.append(frame_pre_process_time-post_process_time)
                 data = self.infer(blob)
                 infer_time = time.perf_counter()
                 infer_process_list.append(infer_time-frame_pre_process_time)
@@ -297,10 +309,11 @@ class BaseEngine(object):
                                     (0, 0, 255), 2)
             
                 num, final_boxes, final_scores, final_cls_inds = data
-                self.logger.info(f'detected face : {num}')
-                self.logger.info(f'boxes info : {final_boxes[:num[0]*4]}')
-                self.logger.info(f'predict : {final_scores[:num[0]]*100}%')
+                #self.logger.info(f'detected face : {num}')
+                #self.logger.info(f'boxes info : {final_boxes[:num[0]*4]}')
+                #self.logger.info(f'predict : {final_scores[:num[0]]*100}%')
                 #final_boxes = np.reshape(final_boxes/ratio, (-1, 4))
+                final_boxes = final_boxes.reshape(-1, 4)
                 dets = np.concatenate([final_boxes[:num[0]], np.array(final_scores)[:num[0]].reshape(-1, 1), np.array(final_cls_inds)[:num[0]].reshape(-1, 1)], axis=-1)
                 if dets is not None:
                     final_boxes, final_scores, final_cls_inds = dets[:,
@@ -312,7 +325,8 @@ class BaseEngine(object):
                 #out.write(frame)
                 post_process_time = time.perf_counter()
                 post_process_list.append(post_process_time-infer_time)
-                total_process_list.append(post_process_time - frame_pre_process_time)
+                total_process_list.append(post_process_time - start_time)
+                start_time = time.perf_counter()
                 if cv2.waitKey(25) & 0xFF == ord('q'):
                     break
             #out.release()
@@ -320,10 +334,10 @@ class BaseEngine(object):
             cv2.destroyAllWindows()
             if self.print_log:
                 print("total frame : ", len(post_process_list))
-                print(f"preprocess average : {np.array(img_preprocess_list).sum() / len(img_preprocess_list):.3f} ms (max {max(img_preprocess_list):.3f}, min {min(img_preprocess_list):.3f})")
-                print(f"inference average : {np.array(infer_process_list).sum() / len(img_preprocess_list):.3f} ms (max {max(infer_process_list):.3f}, min {min(infer_process_list):.3f})")
-                print(f"postprocess average : {np.array(post_process_list).sum() / len(img_preprocess_list):.3f} ms (max {max(post_process_list):.3f}, min {min(post_process_list):.3f})")
-                print(f"total process average : {np.array(total_process_list).sum() / len(img_preprocess_list):.3f} ms (max {max(total_process_list):.3f}, min {min(total_process_list):.3f})")
+                print(f"preprocess average : {np.array(img_preprocess_list).sum() / len(img_preprocess_list):.3f} s (max {max(img_preprocess_list):.3f}, min {min(img_preprocess_list):.3f})")
+                print(f"inference average : {np.array(infer_process_list).sum() / len(img_preprocess_list):.3f} s (max {max(infer_process_list):.3f}, min {min(infer_process_list):.3f})")
+                print(f"postprocess average : {np.array(post_process_list).sum() / len(img_preprocess_list):.3f} s (max {max(post_process_list):.3f}, min {min(post_process_list):.3f})")
+                print(f"total process average : {np.array(total_process_list).sum() / len(img_preprocess_list):.3f} s (max {max(total_process_list):.3f}, min {min(total_process_list):.3f})")
         else:
             self.logger.info("post process start")
             predictions = np.reshape(data, (1, -1, int(5+self.n_classes+ self.nkpt*3)))[0]
@@ -331,14 +345,14 @@ class BaseEngine(object):
 
 
     def detect_rs(self, rs_type, conf=0.5):
-        rs_stream = LoadRealSense(rs_type, img_size=self.imgsz, stride=32)
+        rs_stream = LoadRealSense(rs_type, img_size=self.imgsz[0], stride=32)
         for source, img, img0, depth_img, depth_img0 in rs_stream:
             t1 = time.perf_counter()
             output = self.infer(img)
             t2 = time.perf_counter()
 
-            
-            
+
+             
         
 def nms(boxes, scores, nms_thr):
     """Single class NMS implemented in Numpy."""
