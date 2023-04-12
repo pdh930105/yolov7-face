@@ -7,6 +7,10 @@ import matplotlib.pyplot as plt
 import torch
 import torchvision
 import time
+import pyrealsense2 as rs
+import sys
+sys.path.append('../')
+from utils.datasets import LoadImages, LoadStreams, LoadRealSense
 
 class BaseEngine(object):
     def __init__(self, engine_path, logger, print_log=False):
@@ -247,7 +251,10 @@ class BaseEngine(object):
             self.logger.info("post process start")
             predictions = np.reshape(data, (1, -1, int(5+self.n_classes+ self.nkpt*3)))[0]
             dets = self.postprocess_ops_nms(predictions)[0]
-        
+    
+    def detect_rs(self, rs_type, conf=0.5):
+        pass
+            
         
 def nms(boxes, scores, nms_thr):
     """Single class NMS implemented in Numpy."""
