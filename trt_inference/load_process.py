@@ -33,7 +33,6 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scale
     ratio = r, r  # width, height ratios
     new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
     dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]  # wh padding
-    print("dw, dh : ", dw, dh)
     if auto:  # minimum rectangle
         dw, dh = np.mod(dw, stride), np.mod(dh, stride)  # wh padding
     elif scaleFill:  # stretch
@@ -44,7 +43,6 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scale
     dw /= 2  # divide padding into 2 sides
     dh /= 2
 
-    print("dw, dh result :", dw, dh)
     if shape[::-1] != new_unpad:  # resize
         img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
 
@@ -120,7 +118,6 @@ class LoadRealSense:  # multiple IP or RTSP cameras
         
         self.imgs = np.asanyarray(frames.get_data())
         self.depth_imgs = np.asanyarray(depth_frames.get_data())
-        print("img shape :  ", self.imgs.shape)
         thread = Thread(target=self.update, args=([pipeline, align]), daemon=True)
         print(f' success ({w}x{h} at {self.fps:.2f} FPS).')
         thread.start()
@@ -138,8 +135,6 @@ class LoadRealSense:  # multiple IP or RTSP cameras
                 aligned_frames = align.process(frames)
                 source_frames = aligned_frames.get_color_frame() if self.sources == 'rgb' else aligned_frames.get_infrared_frame()
                 depth_frames = aligned_frames.get_depth_frame()
-                print("depth frame : ", depth_frames)
-                print("source frame : ", np.asanyarray(source_frames.get_data()).shape)
                 self.imgs = np.asanyarray(source_frames.get_data())
                 self.depth_imgs = np.asanyarray(depth_frames.get_data())
                 
@@ -159,12 +154,9 @@ class LoadRealSense:  # multiple IP or RTSP cameras
             raise StopIteration
 
         # Letterbox
-        print("pre image shape :",img0.shape, depth_img0.shape)
         img, ratio, _ = rs_padding(img0, self.img_size, auto=self.rect, stride=self.stride) 
         depth_img = rs_padding(depth_img0, self.img_size, auto=self.rect, stride=self.stride)[0]
         # Stack
-        print("after img shape : ", img.shape, depth_img.shape)
-
         # Convert
         img = img.transpose(2,0,1)  # BGR to RGB, to 3x640x640
         img = img / 255.0
@@ -240,9 +232,7 @@ class LoadImages:  # for inference
             #print(f'image {self.count}/{self.nf} {path}: ', end='')
 
         # Padded resize
-        print("pre img shape :", img0.shape)
         img = letterbox(img0, self.img_size, stride=self.stride, auto=False)[0]
-        print("after img shape :", img.shape)
         # Convert
         img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416 and normalize
         img = img / 255.0
