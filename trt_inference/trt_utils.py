@@ -346,10 +346,28 @@ class BaseEngine(object):
 
     def detect_rs(self, rs_type, conf=0.5):
         rs_stream = LoadRealSense(rs_type, img_size=self.imgsz[0], stride=32)
-        for source, img, img0, depth_img, depth_img0 in rs_stream:
+        t0 = time.perf_counter()
+        img_preprocess_list = []
+        infer_process_list = []
+
+        for source, img, img0, depth_img, depth_img0, _ in rs_stream:
             t1 = time.perf_counter()
-            output = self.infer(img)
+            data = self.infer(img)
             t2 = time.perf_counter()
+            img_preprocess_list.append(t1 - t0)
+            infer_process_list.append(t2-t1)
+            t0 = t2
+            num, final_boxes, final_scores, final_cls_inds = data
+            if int(num) > 0:
+                self.logger.info(f'detected face : {num}')
+                self.logger.info(f'boxes info : {final_boxes[:num[0]*4]}')
+                self.logger.info(f'predict : {final_scores[:num[0]]*100}%')
+                
+
+        print(f"total frame : {len(img_preprocess_list)}")
+        print(f"preprocess average : {np.array(img_preprocess_list).sum() / len(img_preprocess_list):.3f} s (max {max(img_preprocess_list):.3f}, min {min(img_preprocess_list):.3f})")
+        print(f"infer process average : {np.array(img_preprocess_list).sum() / len(infer_process_list):.3f} s (max {max(infer_process_list):.3f}, min {min(infer_process_list):.3f})")
+
 
 
              

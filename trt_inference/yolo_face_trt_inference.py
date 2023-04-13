@@ -24,7 +24,8 @@ if __name__ == '__main__':
 	parser.add_argument("--print-log", default=False, action="store_true",
 					help="use end2end engine")
 	parser.add_argument("--v1", action="store_true", default=False, help="using detect_video")
-
+	parser.add_argument("--rs", action="store_true", default=False, help="using realsense")
+	parser.add_argument("--rs-type", default='rgb', help="use realsense source")
 
 	args = parser.parse_args()
 	print(args)
@@ -35,6 +36,7 @@ if __name__ == '__main__':
 	pred.get_fps()
 	img_path = args.image
 	video = args.video
+	rs = args.rs
 	if img_path:
 		start_time = time.perf_counter()
 		origin_img = pred.inference(img_path, conf=0.1, end2end=args.end2end)
@@ -50,3 +52,6 @@ if __name__ == '__main__':
 			pred.detect_video(video, conf=0.5, use_cam=use_cam, end2end=args.end2end) # set 0 use a webcam
 		else:
 			pred.detect_video_v2(video, conf=0.5, use_cam=use_cam, end2end=args.end2end)
+	if rs:
+		pred.detect_rs(args.rs_type, conf=0.5)
+	
