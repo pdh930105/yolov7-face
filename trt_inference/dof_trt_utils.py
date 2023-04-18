@@ -11,6 +11,115 @@ import pyrealsense2 as rs
 import sys
 from load_process import LoadRealSense, LoadImages
 
+class YOLOEngine(object):
+    def __init__(self, engine_path, logger, trt_nms=True,print_log=False):
+        self.engine_name= 'yolo'
+        self.mean = None
+        self.std = None
+        self.n_classes = 1
+        self.nkpt = 5
+        self.use_onnx_trt = False
+        self.class_names = ['face']
+        self.logger =logger
+        self.print_log = print_log
+        self.trt_nms = trt_nms
+
+        logger = trt.Logger(trt.Logger.WARNING)
+        logger.min_severity = trt.Logger.Severity.ERROR
+        runtime = trt.Runtime(logger)
+        trt.init_libnvinfer_plugins(logger,'') # initialize TensorRT plugins
+        with open(engine_path, "rb") as f:
+            serialized_engine = f.read()
+        engine = runtime.deserialize_cuda_engine(serialized_engine)
+        self.imgsz = engine.get_binding_shape(0)[2:]  # get the read shape of model, in case user input it wrong
+        print("self.imgsz :", self.imgsz)
+        self.context = engine.create_execution_context()
+        self.inputs, self.outputs, self.bindings = [], [], []
+        self.stream = cuda.Stream()
+        
+        for binding in engine:
+            size = trt.volume(engine.get_binding_shape(binding))
+            dtype = trt.nptype(engine.get_binding_dtype(binding))
+            host_mem = cuda.pagelocked_empty(size, dtype)
+            device_mem = cuda.mem_alloc(host_mem.nbytes)
+            self.bindings.append(int(device_mem))
+            if engine.binding_is_input(binding):
+                self.inputs.append({'host': host_mem, 'device': device_mem})
+            else:
+                self.outputs.append({'host': host_mem, 'device': device_mem})
+
+
+    def infer(self, img):
+        self.inputs[0]['host'] = np.ravel(img)
+        # transfer data to the gpu
+        for inp in self.inputs:
+            cuda.memcpy_htod_async(inp['device'], inp['host'], self.stream)
+        # run inference
+        self.context.execute_async_v2(
+            bindings=self.bindings,
+            stream_handle=self.stream.handle)
+        # fetch outputs from gpu
+        # 여기에 nms 추가할 수는 없나
+        
+        for out in self.outputs:
+            cuda.memcpy_dtoh_async(out['host'], out['device'], self.stream)
+        # synchronize stream
+        self.stream.synchronize()
+        #self.logger.info("finished inference")
+        data = [out['host'] for out in self.outputs]
+        return data
+
+    def inference(self, img_path, conf=0.5):
+        start_time = time.perf_counter()
+        origin_img = cv2.imread(img_path)
+        #img, ratio = preproc_pad(origin_img, self.imgsz, self.mean, self.std)
+        #data = self.infer(img)
+        
+        if self.trt_nms:
+            prepare_img_time = time.perf_counter()
+            img, ratio = preproc_pad(origin_img, self.imgsz, self.mean, self.std)
+            preprocess_img_time = time.perf_counter()
+            data = self.infer(img)
+            infer_time = time.perf_counter()
+            num, final_boxes, final_scores, final_cls_inds = data
+
+            final_boxes = np.reshape(final_boxes/ratio, (-1, 4))
+            dets = np.concatenate([final_boxes[:num[0]], np.array(final_scores)[:num[0]].reshape(-1, 1), np.array(final_cls_inds)[:num[0]].reshape(-1, 1)], axis=-1)
+
+            if dets is not None:
+                final_boxes, final_scores, final_classes = dets[:,:4], dets[:, 4], dets[:, 5]
+                origin_img = vis_end2end(origin_img, final_boxes, final_scores, final_classes,
+                                conf=conf, class_names=self.class_names)
+                post_process_time = time.perf_counter()
+                if self.print_log:
+                    for trt_output in data:
+                        print(trt_output.shape)
+                    print("num : ", num)
+                    print("final boxes: ", final_boxes)
+                    print("score : ", final_scores[:num[0]])
+                    print("final cls inds :", final_cls_inds)
+                    print(f"total inference time : {post_process_time-start_time:.3f}s ({1/(post_process_time-start_time):.3f} FPS)")
+                    print(f"img read time : {prepare_img_time-start_time:.3f}s")
+                    print(f"img preprocess time : {preprocess_img_time-prepare_img_time:.3f}s")
+                    print(f"infer time : {infer_time-preprocess_img_time:.3f}s")
+                    print(f"post process time : {post_process_time - infer_time:.3f}")
+
+            return origin_img, final_boxes, None
+        else: # using onnx nms
+            resized_img, resized_img_tran = preproc(origin_img, self.imgsz)
+            yolo_output, nms_result = self.infer(resized_img_tran)
+            yolo_output = yolo_output.reshape(-1, 6 + self.nkpt*3) # (xywh + box + cls (6)) + self.nkpt * 3
+            nms_idx = np.unique(nms_result)
+            if len(nms_idx) > 0: # exists detect box
+                detect_box = yolo_output[nms_idx[1:]] # remove zero index 
+                if len(detect_box) > 0:
+                    detect_box = yolo_output[np.argmax((yolo_output[nms_idx, 2] * yolo_output[nms_idx, 3]))]
+                
+                return detect_box.flatten()
+
+        return origin_img
+
+
 class DoFEngine(object):
     def __init__(self, engine_path, logger, print_log=False):
         self.mean = None
